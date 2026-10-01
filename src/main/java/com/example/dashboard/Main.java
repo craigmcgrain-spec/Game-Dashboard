@@ -5,6 +5,8 @@ import com.example.dashboard.model.Profile;
 import com.example.dashboard.store.Manifest;
 import com.example.dashboard.store.Store;
 import javafx.application.Application;
+import java.util.function.Consumer;
+import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.layout.BorderPane;
 import javafx.stage.Stage;
@@ -27,12 +29,16 @@ public class Main extends Application {
 
     Scene scene = new Scene(new BorderPane(), 1150, 780);
     HomeController[] home = new HomeController[1];
-    home[0] = new HomeController(store, gamesDir, game -> {
-      GameController gc = new GameController(store, game, () -> scene.setRoot((BorderPane) home[0].getRoot()), () -> {
-      });
-      scene.setRoot((javafx.scene.Parent) gc.getRoot());
-    });
-    scene.setRoot((BorderPane) home[0].getRoot());
+    Consumer<GameMetadata> play = new Consumer<>() {
+      @Override
+      public void accept(GameMetadata game) {
+        GameController gc = new GameController(store, game, () -> scene.setRoot((Parent) home[0].getRoot()),
+            () -> showScores(scene, store, games, home[0], this));
+        scene.setRoot((Parent) gc.getRoot());
+      }
+    };
+    home[0] = new HomeController(store, gamesDir, play);
+    scene.setRoot((Parent) home[0].getRoot());
     stage.setTitle("Game Dashboard");
     stage.setScene(scene);
     stage.show();
@@ -50,5 +56,12 @@ public class Main extends Application {
     }
     String home = System.getProperty("user.home");
     return Path.of(home, ".config", "game-dashboard", "games");
+  }
+
+  private static void showScores(Scene scene, Store store, List<GameMetadata> games, HomeController home,
+      Consumer<GameMetadata> play) {
+    ProfileDetailController pd = new ProfileDetailController(store.getActiveProfile(), games,
+        () -> scene.setRoot((Parent) home.getRoot()), play);
+    scene.setRoot((Parent) pd.getRoot());
   }
 }

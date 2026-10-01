@@ -153,3 +153,12 @@ root {
   -fx-font-size: 16px;
   -fx-font-weight: bold;
 }
+
+.scores-view {
+  -fx-padding: 24;
+}
+
+.scores-title {
+  -fx-font-size: 26px;
+  -fx-font-weight: bold;
+}

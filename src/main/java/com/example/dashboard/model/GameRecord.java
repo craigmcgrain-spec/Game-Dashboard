@@ -44,6 +44,11 @@ public class GameRecord {
     return asJava(element);
   }
 
+  /** True if the game stored any continue-state (the high score alone doesn't count). */
+  public boolean hasSave() {
+    return saves.keySet().stream().anyMatch(k -> !k.equals("highScore"));
+  }
+
   public String getPlayedAt() {
     return playedAt;
   }
