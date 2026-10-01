@@ -1,0 +1,9 @@
+[
+  {
+    "id": "rocket-run",
+    "title": "Rocket Run",
+    "icon": "🚀",
+    "entry": "rocket-run/index.html",
+    "minAge": 5
+  }
+]

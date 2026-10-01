@@ -50,6 +50,10 @@ public class Main extends Application {
   }
 
   private static Path defaultGamesDir() {
+    String override = System.getProperty("games.dir");
+    if (override != null) {
+      return Path.of(override);
+    }
     Path local = Path.of("games");
     if (Files.isDirectory(local)) {
       return local.toAbsolutePath();
