@@ -25,12 +25,16 @@ public class Main extends Application {
 
     Dashboard dashboard = new Dashboard(store, gamesDir, games, active);
 
-    HomeController home = new HomeController(store, gamesDir, game -> {
+    Scene scene = new Scene(new BorderPane(), 1150, 780);
+    HomeController[] home = new HomeController[1];
+    home[0] = new HomeController(store, gamesDir, game -> {
+      GameController gc = new GameController(store, game, () -> scene.setRoot((BorderPane) home[0].getRoot()), () -> {
+      });
+      scene.setRoot((javafx.scene.Parent) gc.getRoot());
     });
-
-    BorderPane root = (BorderPane) home.getRoot();
+    scene.setRoot((BorderPane) home[0].getRoot());
     stage.setTitle("Game Dashboard");
-    stage.setScene(new Scene(root, 1150, 780));
+    stage.setScene(scene);
     stage.show();
   }
 

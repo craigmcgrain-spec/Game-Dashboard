@@ -49,6 +49,9 @@ public class GameRecord {
   }
 
   private static Object asJava(JsonElement element) {
+    if (!element.isJsonPrimitive()) {
+      return element;
+    }
     JsonPrimitive primitive = element.getAsJsonPrimitive();
     if (primitive.isBoolean()) {
       return primitive.getAsBoolean();
