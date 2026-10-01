@@ -36,7 +36,7 @@ Run it from the repo root so `./games` is found, or pass `-Dgames.dir=/path/to/g
 
 ```
 sudo dnf install rpm-build
-./package-rpm.sh          # -> dist/game-dashboard-0.1.0-1.x86_64.rpm
+./package-rpm.sh          # -> dist/game-dashboard-1.1.0-1.x86_64.rpm
 sudo dnf install dist/game-dashboard-*.rpm
 ```
 
