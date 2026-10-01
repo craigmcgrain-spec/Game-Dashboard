@@ -31,17 +31,21 @@ public class GameController {
     engine.load(preparedPage(game, bridge.snapshotJson()).toUri().toString());
 
     Profile p = store.getActiveProfile();
-    Label who = new Label(p == null ? "" : p.getAvatar() + " " + p.getName());
-    who.getStyleClass().add("overlay-label");
-    Button back = new Button("\u2190 Back");
+    Button back = new Button("\u2190  Back");
+    back.getStyleClass().add("overlay-btn");
     back.setOnAction(e -> onBack.run());
-    Button scores = new Button("Scores");
+    Button scores = new Button("\u2605 Scores");
+    scores.getStyleClass().add("overlay-btn");
     scores.setOnAction(e -> onScores.run());
-    HBox overlay = new HBox(10, back, who, scores);
+    Label who = new Label(p == null ? "" : p.getAvatar() + "  " + p.getName());
+    who.getStyleClass().add("overlay-name");
+    HBox overlay = new HBox(back, who, scores);
     overlay.getStyleClass().add("game-overlay");
     overlay.setAlignment(Pos.CENTER_LEFT);
     overlay.setMaxSize(HBox.USE_PREF_SIZE, HBox.USE_PREF_SIZE);
     StackPane.setAlignment(overlay, Pos.TOP_LEFT);
+    root.getStylesheets().add(getClass().getResource("/application.css").toExternalForm());
+    Theme.loadFonts();
 
     root.getChildren().addAll(view, overlay);
   }

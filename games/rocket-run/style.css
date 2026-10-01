@@ -1,3 +1,9 @@
-body { font-family: sans-serif; text-align: center; padding: 60px 20px 20px; background: #0b1d3a; color: #fff; }
-#rocket { font-size: 120px; background: none; border: none; cursor: pointer; }
-#start { font-size: 24px; padding: 10px 28px; border-radius: 14px; }
+body { font-family: "Lilita One", "Trebuchet MS", sans-serif; text-align: center; padding: 70px 20px 20px; background: #2d5bff; color: #fff; margin: 0; }
+h1 { font-size: 56px; margin: 0 0 6px; text-shadow: 0 5px 0 rgba(8,20,100,.45); }
+p { font-size: 22px; margin: 10px 0; }
+#best { color: #ffc83d; font-size: 28px; }
+#rocket { padding: 0; display: inline-flex; align-items: center; justify-content: center; background: #ff4d6d; border: 9px solid #fff; border-radius: 44px; width: 220px; height: 220px; cursor: pointer; box-shadow: 0 9px 18px rgba(8,20,100,.45); }
+#rocket:active { transform: scale(.95); }
+#score { font-size: 40px; }
+#start { font-family: inherit; font-size: 30px; padding: 10px 38px; border-radius: 40px; border: 6px solid #fff; background: #14a44d; color: #fff; cursor: pointer; box-shadow: 0 6px 12px rgba(8,20,100,.4); }
+#start:focus { outline: 4px solid #ffc83d; }

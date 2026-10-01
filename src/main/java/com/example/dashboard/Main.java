@@ -29,6 +29,7 @@ public class Main extends Application {
     Dashboard dashboard = new Dashboard(store, gamesDir, games, active);
 
     Scene scene = new Scene(new BorderPane(), 1150, 780);
+    Theme.loadFonts();
     HomeController[] home = new HomeController[1];
     Consumer<GameMetadata> play = new Consumer<>() {
       @Override
@@ -38,9 +39,11 @@ public class Main extends Application {
         scene.setRoot((Parent) gc.getRoot());
       }
     };
-    home[0] = new HomeController(store, gamesDir, play);
+    home[0] = new HomeController(store, gamesDir, play, () -> showScores(scene, store, games, home[0], play));
     scene.setRoot((Parent) home[0].getRoot());
     stage.setTitle("Game Dashboard");
+    stage.setMinWidth(1000);
+    stage.setMinHeight(640);
     stage.setScene(scene);
     stage.show();
   }

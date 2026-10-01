@@ -2,21 +2,22 @@
 
 <?import javafx.scene.control.ScrollPane?>
 <?import javafx.scene.layout.BorderPane?>
-<?import javafx.scene.layout.StackPane?>
 <?import javafx.scene.layout.VBox?>
 
-<BorderPane fx:id="root" xmlns:fx="http://javafx.com/fxml/1" stylesheets="@/application.css">
+<BorderPane fx:id="root" xmlns:fx="http://javafx.com/fxml/1" styleClass="page" stylesheets="@/application.css">
   <left>
-    <ScrollPane fx:id="sidebarScroll" fitToWidth="true" styleClass="sidebar-scroll">
-      <content>
-        <VBox fx:id="sidebar" spacing="12" styleClass="sidebar" />
-      </content>
-    </ScrollPane>
+    <VBox styleClass="players-panel" minWidth="300" prefWidth="300" maxWidth="300">
+      <ScrollPane fx:id="sidebarScroll" fitToWidth="true" hbarPolicy="NEVER" VBox.vgrow="ALWAYS" styleClass="clear-scroll">
+        <content>
+          <VBox fx:id="sidebar" spacing="14" styleClass="sidebar" />
+        </content>
+      </ScrollPane>
+    </VBox>
   </left>
   <center>
-    <ScrollPane fx:id="contentScroll" fitToWidth="true" styleClass="content-scroll">
+    <ScrollPane fx:id="contentScroll" fitToWidth="true" hbarPolicy="NEVER" styleClass="clear-scroll">
       <content>
-        <StackPane fx:id="content" />
+        <VBox fx:id="content" styleClass="content" />
       </content>
     </ScrollPane>
   </center>
