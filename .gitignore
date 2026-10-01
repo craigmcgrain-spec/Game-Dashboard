@@ -1,2 +1,20 @@
+# Maven
+target/
 
+# Packaging output
+dist/
+
+# Superpowers / brainstorm workspace
 .superpowers/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.settings/
+.classpath
+.project
+
+# OS
+.DS_Store
+Thumbs.db
