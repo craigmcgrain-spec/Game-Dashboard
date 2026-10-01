@@ -54,4 +54,41 @@ class DashboardBridgeTest {
     b.setScore(5);
     assertThat(b.load("k")).isNull();
   }
+
+  @Test
+  void snapshotHoldsEverythingSavedForThisGameOnly() {
+    DashboardBridge b = new DashboardBridge(store, "rocket-run");
+    b.save("state", "{\"l\":1}");
+    b.setScore(30);
+    new DashboardBridge(store, "other").save("x", "1");
+    assertThat(com.google.gson.JsonParser.parseString(b.snapshotJson()).getAsJsonObject().keySet())
+        .containsExactlyInAnyOrder("state", "highScore");
+  }
+
+  @Test
+  void emptySnapshotWhenNothingSavedOrNoProfile() throws IOException {
+    assertThat(new DashboardBridge(store, "fresh").snapshotJson()).isEqualTo("{}");
+    Store empty = new Store(Files.createTempDirectory("b3").resolve("p.json"));
+    assertThat(new DashboardBridge(empty, "g").snapshotJson()).isEqualTo("{}");
+  }
+
+  @Test
+  void gameCannotOverwriteTheReservedHighScoreKey() {
+    DashboardBridge b = new DashboardBridge(store, "rocket-run");
+    b.setScore(50);
+    b.save("highScore", "1");
+    assertThat(b.load("highScore")).isEqualTo("50");
+  }
+
+  @Test
+  void failedWriteDoesNotThrowIntoTheGame() throws IOException {
+    Path dir = Files.createTempDirectory("b4");
+    Store s = new Store(dir.resolve("p.json"));
+    s.createProfile("A", "x");
+    Files.delete(dir.resolve("p.json"));
+    Files.delete(dir);
+    DashboardBridge b = new DashboardBridge(s, "g");
+    b.save("k", "1");
+    b.setScore(3);
+  }
 }

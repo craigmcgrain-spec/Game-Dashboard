@@ -49,6 +49,13 @@ public class GameRecord {
     return saves.keySet().stream().anyMatch(k -> !k.equals("highScore"));
   }
 
+  /** Copy of everything stored for this game (saves + highScore), for handing to the page. */
+  public com.google.gson.JsonObject toJsonObject() {
+    com.google.gson.JsonObject o = new com.google.gson.JsonObject();
+    saves.forEach((k, v) -> o.add(k, v.deepCopy()));
+    return o;
+  }
+
   public String getPlayedAt() {
     return playedAt;
   }

@@ -3,7 +3,6 @@ package com.example.dashboard;
 import com.example.dashboard.model.GameMetadata;
 import com.example.dashboard.model.Profile;
 import com.example.dashboard.store.Store;
-import javafx.concurrent.Worker;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.control.Button;
@@ -16,15 +15,6 @@ import netscape.javascript.JSObject;
 
 public class GameController {
 
-  // Defines window.dashboard on top of window.runtime (the Java DashboardBridge).
-  private static final String SHIM = """
-      window.dashboard = {
-        save: function(k, v) { runtime.save(String(k), JSON.stringify(v)); },
-        load: function(k) { var r = runtime.load(String(k)); return (r === null || r === undefined) ? undefined : JSON.parse(r); },
-        setScore: function(s) { runtime.setScore(Number(s)); }
-      };
-      """;
-
   private final StackPane root = new StackPane();
   private final DashboardBridge bridge; // strong ref: WebView holds Java objects weakly
 
@@ -33,12 +23,12 @@ public class GameController {
     WebView view = new WebView();
     WebEngine engine = view.getEngine();
     engine.getLoadWorker().stateProperty().addListener((obs, old, state) -> {
-      if (state == Worker.State.SUCCEEDED) {
+      if (state == javafx.concurrent.Worker.State.SUCCEEDED) {
         ((JSObject) engine.executeScript("window")).setMember("runtime", bridge);
-        engine.executeScript(SHIM);
+        engine.executeScript("window.__dashboardReady && window.__dashboardReady()");
       }
     });
-    engine.load(game.entryFile().orElseThrow().toUri().toString());
+    engine.load(preparedPage(game, bridge.snapshotJson()).toUri().toString());
 
     Profile p = store.getActiveProfile();
     Label who = new Label(p == null ? "" : p.getAvatar() + " " + p.getName());
@@ -58,5 +48,19 @@ public class GameController {
 
   public Node getRoot() {
     return root;
+  }
+
+  /** Writes the rewritten page to a temp file; its <base> tag points back at the game's own folder. */
+  private static java.nio.file.Path preparedPage(GameMetadata game, String snapshotJson) {
+    try {
+      java.nio.file.Path entry = game.entryFile().orElseThrow();
+      String html = java.nio.file.Files.readString(entry);
+      java.nio.file.Path tmp = java.nio.file.Files.createTempFile("game-", ".html");
+      tmp.toFile().deleteOnExit();
+      java.nio.file.Files.writeString(tmp, GamePage.prepare(html, entry.getParent(), snapshotJson));
+      return tmp;
+    } catch (java.io.IOException e) {
+      throw new java.io.UncheckedIOException(e);
+    }
   }
 }
