@@ -5,5 +5,19 @@
     "icon": "🚀",
     "entry": "rocket-run/index.html",
     "minAge": 5
+  },
+  {
+    "id": "froglet",
+    "title": "Froglet",
+    "icon": "🐸",
+    "entry": "froglet/index.html",
+    "minAge": 5
+  },
+  {
+    "id": "nom-nom",
+    "title": "Nom Nom",
+    "icon": "🐹",
+    "entry": "nom-nom/index.html",
+    "minAge": 4
   }
 ]

@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Nom Nom</title>
+<style>
+*{box-sizing:border-box;user-select:none;-webkit-user-select:none}
+body{margin:0;height:100vh;overflow:hidden;background:radial-gradient(circle at 85% 12%,#fff6a8 0 40px,#ffe45e 41px 60px,transparent 62px),linear-gradient(#8fd3ff,#d6f1ff 55%,#7ccf5a 55%,#4fa83a 75%,#6b4423 75%);font-family:"Comic Sans MS",system-ui,sans-serif;touch-action:none}
+#hud{position:absolute;top:10px;left:0;right:0;text-align:center;font-size:32px;font-weight:bold;color:#5a2d0c;text-shadow:0 2px #fff}
+#stage{position:absolute;left:50%;top:48%;width:420px;height:420px;margin:-230px 0 0 -210px}
+#clip{position:absolute;left:-250px;right:-250px;top:-300px;bottom:40px;overflow:hidden}
+#g{position:absolute;left:250px;top:300px;width:420px;height:420px;transform-origin:50% 100%}
+#hole{position:absolute;left:50%;bottom:-10px;width:400px;height:90px;margin-left:-200px;border-radius:50%;background:radial-gradient(#1b0d03 55%,#3a1e0a);box-shadow:0 0 0 14px #7a4a22}
+#mound{position:absolute;left:50%;bottom:-40px;width:560px;height:85px;margin-left:-280px;border-radius:50% 50% 0 0/100% 100% 0 0;background:radial-gradient(ellipse at 50% 0,#9a6232,#6b4423);z-index:3;box-shadow:inset 0 8px 0 #5fbf3f}
+.cloud{position:fixed;font-size:90px;opacity:.9;z-index:0}
+#g img{position:absolute;left:50%;bottom:0;height:380px;transform:translateX(-50%)}
+#mouth{position:absolute;left:50%;top:60%;width:130px;height:90px;margin-left:-65px;pointer-events:none}
+#tray{position:absolute;bottom:14px;left:0;right:0;display:flex;justify-content:center;gap:18px}
+.food{font-size:68px;width:96px;height:96px;display:grid;place-items:center;background:#fff8;border-radius:50%;cursor:grab;touch-action:none}
+.food.drag{position:fixed;z-index:9;cursor:grabbing;background:none}
+#say{position:absolute;left:50%;top:6%;transform:translateX(-50%);font-size:42px;font-weight:bold;opacity:0;white-space:nowrap}
+#over{position:absolute;inset:0;background:#000a;color:#fff;display:none;flex-direction:column;align-items:center;justify-content:center;font-size:40px;gap:16px;z-index:20}
+#over button{font:inherit;font-size:30px;padding:10px 30px;border-radius:30px;border:0;background:#ffd23f;cursor:pointer}
+</style></head><body>
+<div id="hud">Score: <span id="sc">0</span> &nbsp; 🍽️ <span id="left">10</span></div>
+<div id="say"></div>
+<div class="cloud" style="top:8%;left:-120px">☁️</div><div class="cloud" style="top:18%;left:-120px">☁️</div>
+<div id="stage"><div id="hole"></div><div id="clip"><div id="g"><img id="face" src="open.png" draggable="false"></div></div><div id="mound"></div><div id="mouth"></div></div>
+<div id="tray"></div>
+<div id="over"><div id="msg"></div><button onclick="start()">Play again</button></div>
+<script src="gsap.min.js"></script>
+<script>
+// taste: 1 likes, 0 meh, -1 hates
+const FOODS=[["🍎",1],["🍕",1],["🍪",1],["🥕",1],["🌽",1],["🍓",1],["🍔",1],["🍟",1],["🌭",1],["🍩",1],["🍦",1],["🍰",1],["🧁",1],["🍇",1],["🍉",1],["🍑",1],["🥞",1],["🍿",1],["🍫",1],["🥨",1],["🍗",1],["🌮",1],
+["🍌",0],["🍞",0],["🥚",0],["🧀",0],["🥔",0],["🍚",0],["🍝",0],["🥛",0],["🥜",0],["🍐",0],["🥐",0],["🍠",0],["🥥",0],
+["🥦",-1],["🧅",-1],["🐟",-1],["🌶️",-1],["🍋",-1],["🧦",-1],["🧄",-1],["🥬",-1],["🍆",-1],["🦴",-1],["🪱",-1],["🧼",-1],["👟",-1],["🍄",-1],["🥒",-1],["🌵",-1]];
+const IMGS={};["open","bite","chew1","chew2","swallow","happy","indiff","disgust"].forEach(n=>{IMGS[n]=new Image();IMGS[n].src=n+".png"});
+const $=id=>document.getElementById(id),face=$("face"),g=$("g"),say=$("say"),tray=$("tray");
+const D=window.dashboard||{save(){},load(){},setScore(){}};
+const ROUNDS=10;let score,left,busy,tl;
+const pose=n=>()=>{face.src=IMGS[n].src};
+document.querySelectorAll(".cloud").forEach((c,i)=>gsap.to(c,{left:"105%",duration:60+i*35,delay:-i*30,repeat:-1,ease:"none"}));
+// idle breathing / blink-bounce
+const idle=gsap.to(g,{scaleY:1.03,duration:1.2,yoyo:true,repeat:-1,ease:"sine.inOut"});
+
+function fillTray(){
+  tray.innerHTML="";
+  [...FOODS].sort(()=>Math.random()-.5).slice(0,5).forEach(([e,t])=>{
+    const d=document.createElement("div");d.className="food";d.textContent=e;d.dataset.t=t;
+    d.onpointerdown=ev=>drag(ev,d);tray.appendChild(d);
+  });
+}
+function drag(ev,d){
+  if(busy)return;
+  const r=d.getBoundingClientRect(),ox=ev.clientX-r.left,oy=ev.clientY-r.top;
+  d.setPointerCapture(ev.pointerId);d.classList.add("drag");
+  const mv=e=>{d.style.left=e.clientX-ox+"px";d.style.top=e.clientY-oy+"px"};
+  mv(ev);
+  const open=()=>{const m=$("mouth").getBoundingClientRect(),f=d.getBoundingClientRect();
+    return Math.abs(f.left+f.width/2-(m.left+m.width/2))<m.width*.9&&Math.abs(f.top+f.height/2-(m.top+m.height/2))<m.height*1.2};
+  d.onpointermove=e=>{mv(e);if(!busy)face.src=open()?IMGS.open.src:IMGS.swallow.src;};
+  d.onpointerup=e=>{d.onpointermove=d.onpointerup=null;
+    if(open())feed(d);else{d.classList.remove("drag");d.style.left=d.style.top="";face.src=IMGS.open.src}};
+}
+function popText(t,col){say.textContent=t;say.style.color=col;
+  gsap.fromTo(say,{opacity:1,y:20,scale:.4},{y:0,scale:1.2,duration:.4,ease:"back.out(3)"});
+  gsap.to(say,{opacity:0,delay:1.6,duration:.4});}
+
+function feed(d){
+  busy=true;idle.pause();gsap.set(g,{x:0,y:0,rotation:0,scale:1});const t=+d.dataset.t,emoji=d.textContent,m=$("mouth").getBoundingClientRect();
+  // food flies into mouth and shrinks
+  gsap.to(d,{left:m.left+m.width/2-48,top:m.top+m.height/2-48,scale:.2,duration:.2,onComplete:()=>d.remove()});
+  tl=gsap.timeline({onComplete:next});
+  // shared chomp: bite, chew, chew, swallow with squash
+  tl.call(pose("bite"),null,.2).to(g,{scaleY:.88,scaleX:1.1,duration:.12,yoyo:true,repeat:1},.2)
+    .call(pose("chew1"),null,.5).to(g,{scaleX:1.12,scaleY:.92,duration:.1,yoyo:true,repeat:1},.5)
+    .call(pose("chew2"),null,.75).to(g,{scaleX:.92,scaleY:1.1,duration:.1,yoyo:true,repeat:1},.75)
+    .call(pose("chew1"),null,1).call(pose("chew2"),null,1.2)
+    .call(pose("swallow"),null,1.45).to(g,{scaleY:1.2,scaleX:.85,duration:.15,yoyo:true,repeat:1},1.45);
+  const T=1.8;
+  if(t>0){ // LIKE: spinning, jumping party
+    tl.call(pose("happy"),null,T).call(()=>{popText("YUMMY!!","#d6246e");add(10)},null,T)
+      .to(g,{y:-120,rotation:360,duration:.5,ease:"power2.out"},T)
+      .to(g,{y:0,duration:.35,ease:"bounce.out"},T+.5)
+      .to(g,{rotation:-12,duration:.1,yoyo:true,repeat:5},T+.9)
+      .to(g,{rotation:0,duration:.1},T+1.5)
+      .call(()=>{gsap.set(g,{rotation:0});burst("❤️")},null,T+.5);
+  }else if(t===0){ // MEH: sag, slow shrug, tilt
+    tl.call(pose("indiff"),null,T).call(()=>{popText("meh...","#555");add(1)},null,T)
+      .to(g,{scaleY:.85,y:15,rotation:6,duration:.8,ease:"sine.inOut"},T)
+      .to(g,{rotation:-6,duration:.9,ease:"sine.inOut"},T+.8)
+      .to(g,{scaleY:1,y:0,rotation:0,duration:.5},T+1.7);
+  }else{ // HATE: recoil, shake, spit the food out
+    tl.call(pose("disgust"),null,T).call(()=>{popText("BLEAARGH!","#2a8a1a");add(-5)},null,T)
+      .to(g,{x:-70,rotation:-20,scale:1.15,duration:.12,ease:"power3.out"},T)
+      .to(g,{x:12,rotation:6,duration:.05,yoyo:true,repeat:11},T+.12)
+      .call(()=>spit(emoji),null,T+.4)
+      .to(g,{x:0,rotation:0,scale:1,duration:.4,ease:"elastic.out(1,.4)"},T+1.1);
+  }
+}
+function add(n){score=Math.max(0,score+n);$("sc").textContent=score}
+function spit(e){const m=$("mouth").getBoundingClientRect(),s=document.createElement("div");
+  s.textContent=e;s.style.cssText=`position:fixed;font-size:60px;z-index:8;left:${m.left+40}px;top:${m.top+20}px`;document.body.appendChild(s);
+  gsap.to(s,{x:(Math.random()<.5?-1:1)*400,y:-150,rotation:900,duration:.5,ease:"power1.out"});
+  gsap.to(s,{y:500,duration:.6,delay:.5,ease:"power2.in",onComplete:()=>s.remove()});}
+function burst(e){for(let i=0;i<10;i++){const s=document.createElement("div"),m=$("mouth").getBoundingClientRect();
+  s.textContent=e;s.style.cssText=`position:fixed;font-size:36px;z-index:8;left:${m.left+60}px;top:${m.top}px`;document.body.appendChild(s);
+  gsap.to(s,{x:(Math.random()-.5)*500,y:-100-Math.random()*250,opacity:0,rotation:Math.random()*360,duration:1.2,ease:"power2.out",onComplete:()=>s.remove()});}}
+
+function next(){
+  face.src=IMGS.open.src;gsap.set(g,{x:0,y:0,rotation:0,scale:1});idle.restart();left--;$("left").textContent=left;
+  D.setScore(score);
+  if(left<=0){const best=D.load("highScore")||score;$("msg").textContent=`Score ${score}  (best ${Math.max(best,score)})`;$("over").style.display="flex";return}
+  busy=false;fillTray();
+}
+function start(){score=0;left=ROUNDS;busy=false;$("sc").textContent=0;$("left").textContent=left;$("over").style.display="none";face.src=IMGS.open.src;fillTray()}
+start();gsap.from(g,{y:400,duration:.8,ease:"back.out(1.5)"});
+</script></body></html>
