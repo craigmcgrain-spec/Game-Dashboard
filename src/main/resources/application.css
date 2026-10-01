@@ -1,0 +1,144 @@
+root {
+  -fx-background: #f4f7fc;
+}
+
+.sidebar {
+  -fx-padding: 18 14 18 14;
+}
+
+.sidebar-scroll .viewport {
+  -fx-background: #ffffff;
+}
+
+.profile-row {
+  -fx-padding: 10 12 10 12;
+  -fx-border-radius: 14;
+  -fx-background-radius: 14;
+  -fx-cursor: hand;
+}
+
+.profile-row:hover {
+  -fx-background: #eef4ff;
+}
+
+.profile-row-selected {
+  -fx-background: #dbe9ff;
+  -fx-border-color: #4a90ff;
+  -fx-border-width: 2;
+  -fx-border-radius: 14;
+}
+
+.profile-avatar {
+  -fx-font-size: 24px;
+}
+
+.profile-name {
+  -fx-font-size: 17px;
+  -fx-font-weight: bold;
+  -fx-text-fill: #1f2a44;
+}
+
+.new-button {
+  -fx-padding: 12 14 12 14;
+  -fx-background-radius: 14;
+  -fx-border-radius: 14;
+  -fx-background: #4a90ff;
+  -fx-text-fill: #ffffff;
+  -fx-font-size: 16px;
+  -fx-font-weight: bold;
+  -fx-cursor: hand;
+}
+
+.new-button:hover {
+  -fx-background: #3a78e0;
+}
+
+.player-name-field {
+  -fx-padding: 12 14 12 14;
+  -fx-background-radius: 12;
+  -fx-border-radius: 12;
+  -fx-border-color: #c8d6ec;
+  -fx-border-width: 1;
+  -fx-font-size: 16px;
+}
+
+.emoji-row {
+  -fx-wrap-width: 220;
+  -fx-spacing: 6;
+  -fx-padding: 4 0 4 0;
+}
+
+.emoji-btn {
+  -fx-font-size: 22px;
+  -fx-background: #f0f3fa;
+  -fx-background-radius: 10;
+  -fx-border-radius: 10;
+  -fx-cursor: hand;
+}
+
+.emoji-btn:hover {
+  -fx-background: #dbe9ff;
+}
+
+.form-actions {
+  -fx-spacing: 10;
+  -fx-padding: 6 0 0 0;
+}
+
+.save-btn {
+  -fx-padding: 10 20 10 20;
+  -fx-background-radius: 12;
+  -fx-background: #34c759;
+  -fx-text-fill: #ffffff;
+  -fx-font-weight: bold;
+  -fx-cursor: hand;
+}
+
+.save-btn:hover {
+  -fx-background: #2aa348;
+}
+
+.cancel-btn {
+  -fx-padding: 10 20 10 20;
+  -fx-background-radius: 12;
+  -fx-background: #e7ecf5;
+  -fx-text-fill: #566584;
+  -fx-font-weight: bold;
+  -fx-cursor: hand;
+}
+
+.content-scroll .viewport {
+  -fx-background: #f4f7fc;
+}
+
+.game-grid {
+  -fx-padding: 26;
+  -fx-alignment: center-left;
+}
+
+.game-cell {
+  -fx-padding: 18 12 18 12;
+  -fx-background-radius: 20;
+  -fx-border-radius: 20;
+  -fx-background: #ffffff;
+  -fx-cursor: hand;
+}
+
+.game-cell:hover {
+  -fx-background: #fff6e6;
+  -fx-scale-x: 1.04;
+  -fx-scale-y: 1.04;
+}
+
+.game-title {
+  -fx-font-size: 15px;
+  -fx-font-weight: bold;
+  -fx-text-fill: #1f2a44;
+  -fx-alignment: center;
+}
+
+.empty-state {
+  -fx-font-size: 18px;
+  -fx-text-fill: #8a97ad;
+  -fx-alignment: center;
+}

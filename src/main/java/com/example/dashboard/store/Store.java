@@ -118,6 +118,9 @@ public class Store implements Closeable {
     String json = gson.toJson(data);
     try {
       Path parent = storeFile.toAbsolutePath().getParent();
+      if (parent != null) {
+        Files.createDirectories(parent);
+      }
       Path tmp = Files.createTempFile(parent, "profiles", ".json.tmp");
       Files.writeString(tmp, json, StandardCharsets.UTF_8);
       Files.move(tmp, storeFile, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);

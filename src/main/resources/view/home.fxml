@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.ScrollPane?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.StackPane?>
+<?import javafx.scene.layout.VBox?>
+
+<BorderPane fx:id="root" xmlns:fx="http://javafx.com/fxml/1" stylesheets="@/application.css">
+  <left>
+    <ScrollPane fx:id="sidebarScroll" fitToWidth="true" styleClass="sidebar-scroll">
+      <content>
+        <VBox fx:id="sidebar" spacing="12" styleClass="sidebar" />
+      </content>
+    </ScrollPane>
+  </left>
+  <center>
+    <ScrollPane fx:id="contentScroll" fitToWidth="true" styleClass="content-scroll">
+      <content>
+        <StackPane fx:id="content" />
+      </content>
+    </ScrollPane>
+  </center>
+</BorderPane>
