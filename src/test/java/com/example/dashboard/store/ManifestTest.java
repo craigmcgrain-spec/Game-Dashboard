@@ -53,4 +53,49 @@ class ManifestTest {
       """);
     assertThatThrownBy(() -> Manifest.load(games)).isInstanceOf(IllegalArgumentException.class);
   }
+
+  @Test
+  void malformedJsonIsAnIllegalArgumentNotAGsonCrash() throws IOException {
+    Files.writeString(games.resolve("manifest.json"), "[{oops");
+    assertThatThrownBy(() -> Manifest.load(games)).isInstanceOf(IllegalArgumentException.class);
+  }
+
+  @Test
+  void entryWithoutPathAndNullFieldsAreSkippedOrDefaultedNotCrashed() throws IOException {
+    Files.createDirectories(games.resolve("ok"));
+    Files.writeString(games.resolve("ok/index.html"), "x");
+    Files.writeString(games.resolve("manifest.json"), """
+      [{"id":"noentry","title":"T","icon":"i"},
+       {"id":"ok","entry":"ok/index.html"}]
+      """);
+    List<GameMetadata> g = Manifest.load(games);
+    assertThat(g).hasSize(1);
+    assertThat(g.get(0).getTitle()).isEqualTo("ok"); // missing title falls back to the id
+    assertThat(g.get(0).getIcon()).isNotBlank();
+  }
+
+  @Test
+  void entryOutsideTheGamesFolderIsSkipped() throws IOException {
+    Path outside = Files.createTempDirectory("outside");
+    Files.writeString(outside.resolve("index.html"), "x");
+    String rel = games.relativize(outside).toString().replace('\\', '/') + "/index.html";
+    Files.writeString(games.resolve("manifest.json"),
+        "[{\"id\":\"evil\",\"title\":\"E\",\"icon\":\"e\",\"entry\":\"" + rel + "\"}]");
+    assertThat(Manifest.load(games)).isEmpty();
+  }
+
+  @Test
+  void unusablePathCharactersAreSkippedNotCrashed() throws IOException {
+    Files.writeString(games.resolve("manifest.json"),
+        "[{\"id\":\"nul\",\"title\":\"N\",\"icon\":\"n\",\"entry\":\"a\\u0000b/index.html\"}]");
+    assertThat(Manifest.load(games)).isEmpty();
+  }
+
+  @Test
+  void insideRejectsTraversalAndAbsolutePaths() {
+    assertThat(Manifest.inside(games, "a/b.png")).isPresent();
+    assertThat(Manifest.inside(games, "../x.png")).isEmpty();
+    assertThat(Manifest.inside(games, "/etc/passwd")).isEmpty();
+    assertThat(Manifest.inside(games, "\uD83D\uDE80")).isPresent(); // an emoji icon is a harmless relative name
+  }
 }

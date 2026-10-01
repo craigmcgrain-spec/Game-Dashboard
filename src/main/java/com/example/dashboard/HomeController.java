@@ -124,14 +124,24 @@ public class HomeController {
 
   private void renderGrid() {
     List<GameMetadata> games;
+    String problem = null;
     try {
       games = Manifest.load(gamesDir);
-    } catch (IOException e) {
+    } catch (IOException | RuntimeException e) {
       games = List.of();
+      problem = "Couldn't read the games list: " + e.getMessage();
+    }
+    if (store.getActiveProfile() == null) {
+      // Progress is saved per player, so nobody can play until a player exists.
+      content.getChildren().clear();
+      Label hint = new Label("Tap \uFF0B New Player to start playing!");
+      hint.getStyleClass().add("empty-state");
+      content.getChildren().add(hint);
+      return;
     }
     if (games.isEmpty()) {
       content.getChildren().clear();
-      Label empty = new Label("No games yet. Add a game folder to games/ to get started.");
+      Label empty = new Label(problem != null ? problem : "No games yet. Add a game folder to games/ to get started.");
       empty.getStyleClass().add("empty-state");
       content.getChildren().add(empty);
       return;
@@ -159,9 +169,9 @@ public class HomeController {
   }
 
   private Node iconNode(GameMetadata game) {
-    Path iconPath = gamesDir.resolve(game.getIcon());
-    if (Files.exists(iconPath)) {
-      return new ImageView(new Image(iconPath.toUri().toString()));
+    var iconPath = Manifest.inside(gamesDir, game.getIcon()).filter(Files::isRegularFile);
+    if (iconPath.isPresent()) {
+      return new ImageView(new Image(iconPath.get().toUri().toString()));
     }
     Text text = new Text(game.getIcon());
     text.setStyle("-fx-font-size: 40px");

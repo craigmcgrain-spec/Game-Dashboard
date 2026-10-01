@@ -78,4 +78,36 @@ class StoreTest {
     // store exists and parses as valid JSON after a clean write
     assertThat(Json.parse(Files.readString(store))).isNotNull();
   }
+
+  @Test
+  void corruptStoreFileIsSetAsideAndAppStartsEmpty() throws IOException {
+    Files.writeString(store, "{not json");
+    try (Store s = new Store(store)) {
+      assertThat(s.listProfiles()).isEmpty();
+      s.createProfile("Alex", "x"); // and it is usable again
+    }
+    try (java.util.stream.Stream<Path> files = Files.list(dir)) {
+      assertThat(files.map(f -> f.getFileName().toString()))
+          .anyMatch(n -> n.startsWith("profiles.json.corrupt-"));
+    }
+    try (Store s = new Store(store)) {
+      assertThat(s.listProfiles()).hasSize(1);
+    }
+  }
+
+  @Test
+  void failedWriteLeavesNoTempFilesBehind() throws IOException {
+    Store s = new Store(store);
+    s.createProfile("Alex", "x");
+    dir.toFile().setWritable(false);
+    try {
+      org.assertj.core.api.Assertions.assertThatThrownBy(() -> s.createProfile("Sam", "y"))
+          .isInstanceOf(java.io.UncheckedIOException.class);
+    } finally {
+      dir.toFile().setWritable(true);
+    }
+    try (java.util.stream.Stream<Path> files = Files.list(dir)) {
+      assertThat(files.map(f -> f.getFileName().toString())).noneMatch(n -> n.endsWith(".tmp"));
+    }
+  }
 }

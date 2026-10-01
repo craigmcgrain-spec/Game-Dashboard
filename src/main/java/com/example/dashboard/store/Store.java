@@ -6,6 +6,9 @@ import com.google.gson.Gson;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
+import java.nio.file.StandardOpenOption;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -41,7 +44,20 @@ public class Store implements Closeable {
         }
       }
     } catch (Exception e) {
-      throw new RuntimeException("failed to read store at " + storeFile, e);
+      quarantineUnreadableStore(e);
+    }
+  }
+
+  /** A corrupt file must not lock the family out of the app: keep it aside for recovery and start fresh. */
+  private void quarantineUnreadableStore(Exception cause) {
+    profiles.clear();
+    activeId = null;
+    Path aside = storeFile.resolveSibling(storeFile.getFileName() + ".corrupt-" + System.currentTimeMillis());
+    try {
+      Files.move(storeFile, aside, StandardCopyOption.REPLACE_EXISTING);
+      System.err.println("Could not read " + storeFile + " (" + cause + "); moved it to " + aside);
+    } catch (IOException moveFailure) {
+      System.err.println("Could not read " + storeFile + " (" + cause + ") and could not move it aside: " + moveFailure);
     }
   }
 
@@ -116,16 +132,28 @@ public class Store implements Closeable {
     data.activeId = activeId;
     data.profiles = profiles;
     String json = gson.toJson(data);
+    Path tmp = null;
     try {
       Path parent = storeFile.toAbsolutePath().getParent();
       if (parent != null) {
         Files.createDirectories(parent);
       }
-      Path tmp = Files.createTempFile(parent, "profiles", ".json.tmp");
-      Files.writeString(tmp, json, StandardCharsets.UTF_8);
+      tmp = Files.createTempFile(parent, "profiles", ".json.tmp");
+      try (FileChannel ch = FileChannel.open(tmp, StandardOpenOption.WRITE)) {
+        ch.write(ByteBuffer.wrap(json.getBytes(StandardCharsets.UTF_8)));
+        ch.force(true); // survive power loss between the rename and the disk flush
+      }
       Files.move(tmp, storeFile, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
     } catch (IOException e) {
       throw new UncheckedIOException("failed to persist store to " + storeFile, e);
+    } finally {
+      if (tmp != null) {
+        try {
+          Files.deleteIfExists(tmp);
+        } catch (IOException ignored) {
+          // best effort
+        }
+      }
     }
   }
 

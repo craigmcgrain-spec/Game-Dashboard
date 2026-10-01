@@ -12,8 +12,7 @@ browser (JavaFX `WebView`), and the launcher keeps each player's scores and save
 sudo dnf install java-latest-openjdk-devel maven gtk3 mesa-libGL fontconfig
 ```
 
-JavaFX comes from Maven and bundles its own WebKit, so `webkit2gtk` is **not** needed. JDK 17 or newer
-(tested on 25 with JavaFX 21).
+JavaFX comes from Maven and bundles its own WebKit, so `webkit2gtk` is **not** needed. The build targets Java 17, but only JDK 25 with JavaFX 21 has been tested.
 
 ## Run from source
 
@@ -41,7 +40,8 @@ sudo dnf install rpm-build
 sudo dnf install dist/game-dashboard-*.rpm
 ```
 
-The RPM bundles the `games/` folder from the repo. (The script reuses the system JDK as the runtime because
+The RPM bundles the repo's `games/` folder and copies it to `~/.local/share/game-dashboard/games` on first run; add your own
+games there (an existing manifest is never overwritten). (The script reuses the system JDK as the runtime because
 Fedora's patched `java.security` makes `jpackage`'s `jlink` step fail.)
 
 ## Where data lives

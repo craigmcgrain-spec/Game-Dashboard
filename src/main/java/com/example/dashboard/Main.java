@@ -2,6 +2,7 @@ package com.example.dashboard;
 
 import com.example.dashboard.model.GameMetadata;
 import com.example.dashboard.model.Profile;
+import com.example.dashboard.store.GamesFolder;
 import com.example.dashboard.store.Manifest;
 import com.example.dashboard.store.Store;
 import javafx.application.Application;
@@ -22,7 +23,7 @@ public class Main extends Application {
     Path storePath = defaultStorePath();
     Store store = new Store(storePath);
     Path gamesDir = defaultGamesDir();
-    List<GameMetadata> games = Manifest.load(gamesDir);
+    List<GameMetadata> games = loadGamesOrEmpty(gamesDir);
     Profile active = store.getActiveProfile();
 
     Dashboard dashboard = new Dashboard(store, gamesDir, games, active);
@@ -49,7 +50,22 @@ public class Main extends Application {
     return Path.of(home, ".config", "game-dashboard", "profiles.json");
   }
 
+  private static List<GameMetadata> loadGamesOrEmpty(Path gamesDir) {
+    try {
+      return Manifest.load(gamesDir);
+    } catch (IOException | RuntimeException e) {
+      System.err.println("Could not read games from " + gamesDir + ": " + e.getMessage());
+      return List.of();
+    }
+  }
+
   private static Path defaultGamesDir() {
+    String seed = System.getProperty("games.seed"); // set by the RPM: bundled games are read-only
+    if (seed != null) {
+      Path userDir = Path.of(System.getProperty("user.home"), ".local", "share", "game-dashboard", "games");
+      GamesFolder.seedIfMissing(Path.of(seed), userDir);
+      return userDir;
+    }
     String override = System.getProperty("games.dir");
     if (override != null) {
       return Path.of(override);

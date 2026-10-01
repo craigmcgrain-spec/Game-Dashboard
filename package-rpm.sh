@@ -15,6 +15,6 @@ jpackage --type "${1:-rpm}" --name game-dashboard --app-version 0.1.0 \
   --input target/jp-in --main-jar game-dashboard.jar --main-class com.example.dashboard.Main \
   --runtime-image "${JAVA_HOME:-/usr/lib/jvm/java-25-openjdk}" \
   --java-options '--module-path=$APPDIR/mods' --java-options '--add-modules=javafx.controls,javafx.fxml,javafx.web' \
-  --java-options '-Dgames.dir=$APPDIR/games' --java-options '--enable-native-access=ALL-UNNAMED' \
+  --java-options '-Dgames.seed=$APPDIR/games' --java-options '--enable-native-access=ALL-UNNAMED' \
   --icon src/main/resources/app.png --linux-shortcut --linux-menu-group Game \
   --dest dist
