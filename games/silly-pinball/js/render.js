@@ -29,6 +29,11 @@ const Render = (() => {
     glassEdge: '#2d6b78',
   };
 
+  // The end screen never says "GAME OVER" — the forgiving twist (spec 4.3) means the worst
+  // outcome still reads as praise. Exposed so a probe can assert the copy without grepping source.
+  const OVER_TITLE = 'SILLY PINBALL';
+  const OVER_TEXT = 'WHAT A RIDE!';
+
   const CHARACTER_COLORS = {
     gummy: '#ff9f1c', jelly: '#a06cd5', popcorn: '#ffd166',
     mallow: '#f4f8f8', choco: '#8a5a34',
@@ -272,6 +277,92 @@ const Render = (() => {
       return m && m.until > now ? m.mood : 'idle';
     }
 
+    // ---- backglass (top layer, per spec 4.4) -----------------------------
+
+    const FONT = 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
+
+    function drawBackglass(g, st) {
+      const bg = CONFIG.BACKGLASS;
+      const cx = bg.x + bg.w / 2;
+      const b = st.backglass || {};
+
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+
+      g.fillStyle = '#8fdc5f';
+      g.font = 'bold 40px ' + FONT;
+      g.fillText(OVER_TITLE, cx, bg.y + 52);
+
+      g.fillStyle = '#9fc4ad';
+      g.font = 'bold 20px ' + FONT;
+      g.fillText('SCORE', cx, bg.y + 124);
+
+      g.fillStyle = '#ffffff';
+      g.font = 'bold 58px ' + FONT;
+      g.fillText(String(b.score || 0), cx, bg.y + 172);
+
+      g.fillStyle = '#ffe066';
+      g.font = 'bold 22px ' + FONT;
+      g.fillText('BEST  ' + (b.best || 0), cx, bg.y + 230);
+
+      // balls remaining, as pips
+      const left = b.ballsLeft == null ? 3 : b.ballsLeft;
+      g.fillStyle = '#cdeccb';
+      g.font = 'bold 17px ' + FONT;
+      g.fillText('BALL ' + (b.ball || 1), cx, bg.y + 282);
+      for (let i = 0; i < 3; i++) {
+        g.fillStyle = i < left ? '#59c04a' : 'rgba(255,255,255,0.2)';
+        g.beginPath();
+        g.arc(cx - 30 + i * 30, bg.y + 312, 9, 0, Math.PI * 2);
+        g.fill();
+      }
+
+      if (b.mult && b.mult > 1) {
+        g.fillStyle = '#ff9f1c';
+        g.font = 'bold 34px ' + FONT;
+        g.fillText('x' + b.mult.toFixed(1).replace(/\.0$/, ''), cx, bg.y + 372);
+      }
+
+      Characters.draw(g, 'choco', cx, bg.y + 474, 58, b.mascotMood || 'idle', st.t || 0);
+
+      if (b.message) {
+        g.fillStyle = 'rgba(255,255,255,0.92)';
+        roundRect(g, bg.x + 44, bg.y + 556, bg.w - 88, 58, 14);
+        g.fill();
+        g.fillStyle = '#16321b';
+        g.font = 'bold 22px ' + FONT;
+        g.fillText(String(b.message).slice(0, 22), cx, bg.y + 586);
+      }
+    }
+
+    function drawOver(g, st) {
+      const pf = CONFIG.PLAYFIELD;
+      const w = pf.w - 20;
+      const x = pf.x + 10;
+      const y = pf.y + pf.h * 0.26;
+      g.fillStyle = 'rgba(4,18,20,0.72)';
+      roundRect(g, x, y, w, 250, 16);
+      g.fill();
+
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.fillStyle = '#ffd166';
+      g.font = 'bold 38px ' + FONT;
+      g.fillText(OVER_TEXT, x + w / 2, y + 62);
+
+      g.fillStyle = '#ffffff';
+      g.font = 'bold 30px ' + FONT;
+      g.fillText(String((st.backglass || {}).score || 0), x + w / 2, y + 124);
+
+      g.fillStyle = '#9fc4ad';
+      g.font = 'bold 18px ' + FONT;
+      g.fillText('the crew says well played', x + w / 2, y + 170);
+
+      g.fillStyle = '#8fdc5f';
+      g.font = 'bold 20px ' + FONT;
+      g.fillText('PRESS SPACE', x + w / 2, y + 212);
+    }
+
     function frame(state) {
       const st = state || {};
       const now = (typeof performance !== 'undefined' && performance.now)
@@ -305,6 +396,8 @@ const Render = (() => {
 
       if (st.ball) drawBall(ctx, st.ball);
       drawParticles(ctx, st.particles);
+      drawBackglass(ctx, st);
+      if (st.over) drawOver(ctx, st);
     }
 
     function resize() {
@@ -323,5 +416,5 @@ const Render = (() => {
     return { resize, frame, metrics };
   }
 
-  return { create, CHARACTER_COLORS };
+  return { create, CHARACTER_COLORS, OVER_TEXT, OVER_TITLE };
 })();

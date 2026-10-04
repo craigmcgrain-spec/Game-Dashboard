@@ -28,9 +28,41 @@ const Game = (() => {
   let moods = {};                  // one-shot mood signals; the renderer holds the decay
   let downTargets = {};
   let flipperWas = { left: false, right: false };
+  let message = '';                // the line currently in the backglass speech bubble
+  let mascotMood = 'idle';
   let plungerCharge = 0;
   let plungerHeld = false;
   let spinnerAngle = 0;
+
+  // ---- persistence (window.dashboard contract) --------------------------
+  // Every call is guarded: the game must run unchanged in a plain browser with no launcher
+  // (Review Focus #3), so a missing or throwing bridge degrades to "no saved score".
+
+  function loadBest() {
+    try {
+      if (window.dashboard && window.dashboard.load) {
+        const v = window.dashboard.load('highScore');
+        if (typeof v === 'number' && isFinite(v)) return v;
+      }
+    } catch (e) { /* no bridge: no saved best */ }
+    return 0;
+  }
+
+  /** Checkpointed at the START of each ball only — never mid-flight. */
+  function checkpoint(state) {
+    try {
+      if (window.dashboard && window.dashboard.save) {
+        window.dashboard.save('save', { score: state.score, balls: state.balls, ball: state.ball });
+      }
+    } catch (e) { /* nothing to do */ }
+  }
+
+  function finish(score) {
+    try {
+      if (window.dashboard && window.dashboard.setScore) window.dashboard.setScore(score);
+      if (window.dashboard && window.dashboard.save) window.dashboard.save('save', null);
+    } catch (e) { /* nothing to do */ }
+  }
 
   function plunger() {
     for (let i = 0; i < TABLE.elements.length; i++) {
@@ -74,30 +106,48 @@ const Game = (() => {
     spinnerAngle = 0;
     plungerCharge = 0;
     plungerHeld = false;
+    message = 'here we go!';
+    mascotMood = 'cheer';
     const p = plunger();
     physics.reset(p.x, p.y - CONFIG.BALL_R - 6);
     state = 'launch';
+    checkpoint(rules);
   }
 
   function nextBall() {
     physics.reset(plunger().x, plunger().y - CONFIG.BALL_R - 6);
     plungerCharge = 0;
     plungerHeld = false;
+    message = 'nice try!';
+    mascotMood = 'idle';
     state = 'launch';
+    checkpoint(rules);
   }
 
   let bumpIndex = 0;
+
+  function say(id, mood) {
+    let who = 'gummy';
+    for (let i = 0; i < TABLE.elements.length; i++) {
+      const el = TABLE.elements[i];
+      if (el.id === id && el.character) who = el.character;
+    }
+    message = Characters.line(who, mood);
+    mascotMood = mood;
+  }
 
   /** Physics event -> rules outcome + the reaction the crew shows and the sound played. */
   function applyEvent(kind, id) {
     if (kind === 'bumper') {
       const r = Rules.hit(rules, 'bumper', now);
       moods[id] = 'hit';
+      say(id, 'hit');
       Sound.play('bumper' + (1 + (bumpIndex++ % 3)));
       if (r.events.indexOf('combo-up') !== -1) cheer();
     } else if (kind === 'sling') {
       Rules.hit(rules, 'sling', now);
       moods[id] = 'hit';
+      say(id, 'hit');
       Sound.play('sling');
     } else if (kind === 'standup') {
       Rules.hit(rules, 'standup', now);
@@ -110,10 +160,12 @@ const Game = (() => {
     } else if (kind === 'kicker') {
       Rules.hit(rules, 'kicker', now);
       moods[id] = 'cheer';
+      say(id, 'cheer');
       Sound.play('kicker');
     } else if (kind === 'lane') {
       const r = Rules.hit(rules, 'lane', now);
       moods[id] = 'wobble';
+      say(id, 'wobble');
       Sound.play('target');
       if (r.events.indexOf('snack-time') !== -1) {
         cheer();
@@ -125,10 +177,13 @@ const Game = (() => {
       const r = Rules.bankHit(rules, letter, now);
       downTargets[id] = true;
       moods[id] = 'hit';
+      say(id, 'hit');
       Sound.play('target');
       if (r.events.indexOf('bank-clear') !== -1) {
         downTargets = {};
         cheer();
+        mascotMood = 'cheer';
+        message = 'SNACK! Everyone cheers!';
         Sound.play('bank');
         Sound.play('multiball');
         physics.spawnExtra(2);           // multiball
@@ -184,7 +239,10 @@ const Game = (() => {
         const r = Rules.drain(rules, now);
         if (r.events.indexOf('game-over') !== -1) {
           state = 'over';
+          mascotMood = 'cheer';
+          message = 'what a ride!';
           Sound.play('cheer');
+          finish(rules.score);
           const p = plunger();
           physics.reset(p.x, p.y - CONFIG.BALL_R - 6);   // machine sits ready behind the end screen
         } else {
@@ -228,6 +286,16 @@ const Game = (() => {
       elements: dynamicElements(),
       particles: [],
       moods: moods,
+      over: state === 'over',
+      backglass: {
+        score: rules.score,
+        best: best,
+        ball: rules.ball,
+        ballsLeft: rules.balls,
+        mult: 1 + Math.min(Math.max(0, rules.combo - 1), 9) * 0.25,
+        mascotMood: mascotMood,
+        message: message,
+      },
       t: now / 1000,
     });
     moods = {};
@@ -260,6 +328,7 @@ const Game = (() => {
     physics = Physics.create(TABLE);
     rules = Rules.createState(0);
     Sound.init('sounds');
+    best = loadBest();
     window.addEventListener('resize', onResize);
     ready = true;
     requestAnimationFrame(frame);
@@ -268,6 +337,9 @@ const Game = (() => {
   return {
     init,
     snapshot,
+    loadBest,
+    checkpoint,
+    finish,
     // Verification handle for tools/webview-probe. Without it a probe cannot force a drain
     // at a chosen moment, and the ball-save window is the one rule that cannot be observed
     // by playing normally inside a probe's lifetime. Not used by the game itself.
