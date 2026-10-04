@@ -23,7 +23,10 @@ const TABLE = {
     { id: 'plunger', type: 'plunger', x: 457, y: 672, w: 30, h: 18 },
 
     // ---- orbit dome across the top -------------------------------------
-    { id: 'orbit-arc', type: 'arc', cx: 250, cy: 320, r: 196, a0: Math.PI, a1: Math.PI * 2, thickness: 12 },
+    // a1 stops short of the lane on purpose: a full half-circle ends at (446,320), which
+    // sits in the launch lane and pinches it shut, so a launch below ~0.85 power could not
+    // squeeze past and the ball simply fell back onto the plunger.
+    { id: 'orbit-arc', type: 'arc', cx: 250, cy: 320, r: 196, a0: Math.PI, a1: Math.PI * 2 - 0.30, thickness: 12 },
     { id: 'lane-top', type: 'rolloverLane', x: 457, y: 200, w: 26, h: 22 },
     { id: 'lane-left', type: 'rolloverLane', x: 170, y: 90, w: 30, h: 16 },
     { id: 'lane-mid', type: 'rolloverLane', x: 250, y: 74, w: 30, h: 16 },

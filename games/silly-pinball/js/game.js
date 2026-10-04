@@ -30,6 +30,7 @@ const Game = (() => {
   let flipperWas = { left: false, right: false };
   let message = '';                // the line currently in the backglass speech bubble
   let mascotMood = 'idle';
+  let paused = false;
   let particles = [];              // sparks, licked off the table bed
   let pops = [];                   // floating score numbers
   let shake = 0;
@@ -94,6 +95,8 @@ const Game = (() => {
       ballY: b ? +b.position.y.toFixed(1) : 0,
       multiball: physics ? physics.ballCount() : 0,
       fps: fps,
+      paused: paused,
+      now: +now.toFixed(0),
     };
   }
 
@@ -112,6 +115,7 @@ const Game = (() => {
     plungerHeld = false;
     message = 'here we go!';
     mascotMood = 'cheer';
+    paused = false;
     const p = plunger();
     physics.reset(p.x, p.y - CONFIG.BALL_R - 6);
     state = 'launch';
@@ -178,11 +182,13 @@ const Game = (() => {
   /** Physics event -> rules outcome + the reaction the crew shows and the sound played. */
   function applyEvent(kind, id) {
     if (kind === 'bumper') {
-      const r = Rules.hit(rules, 'bumper', now);
+      const el = elementById(id);
+      // character-specific award from the table (spec 4.3: bumpers 100-300)
+      const r = Rules.hit(rules, 'bumper', now, el ? el.points : undefined);
       moods[id] = 'hit';
       say(id, 'hit');
-      burst(elementById(id), 7, 170);
-      pop(elementById(id), r.points);
+      burst(el, 7, 170);
+      pop(el, r.points);
       Sound.play('bumper' + (1 + (bumpIndex++ % 3)));
       if (r.events.indexOf('combo-up') !== -1) cheer();
     } else if (kind === 'sling') {
@@ -257,6 +263,17 @@ const Game = (() => {
 
     if (Input.wasPressed('mute')) Sound.toggleMute();
 
+    if ((state === 'play' || state === 'launch') && Input.wasPressed('pause')) {
+      paused = !paused;
+    }
+    if (paused) {
+      // Freeze the clock too: Rules timers (ball save, combo window) are driven by `now`,
+      // so advancing it while paused would spend the save window behind the player's back.
+      return;
+    }
+
+    now += dtMs;
+
     if (state === 'attract' || state === 'over') {
       if (Input.wasPressed('confirm')) newGame();
       // Still step so the flippers swing to their rest angle and the parked ball settles:
@@ -271,7 +288,11 @@ const Game = (() => {
         plungerCharge = Math.min(1, plungerCharge + dtMs / CONFIG.PLUNGE_CHARGE_MS);
       } else if (plungerHeld) {
         plungerHeld = false;
-        const power = plungerCharge;
+        // A tap must still clear the lane. Without a floor, a one-frame tap charged ~2%,
+        // launched the ball nowhere, and left state 'play' with the plunger permanently
+        // dead and no way to recover — a stranded ball and a dead Space key. Measured on
+        // this table: 0.35 does not clear the lane, 0.5 does.
+        const power = Math.max(0.5, plungerCharge);
         plungerCharge = 0;
         physics.launch(power);
         state = 'play';
@@ -354,9 +375,7 @@ const Game = (() => {
 
   function frame(ts) {
     if (lastTs) {
-      const dt = Math.min(50, ts - lastTs);
-      now += dt;
-      update(dt);
+      update(Math.min(50, ts - lastTs));
     }
     lastTs = ts;
 

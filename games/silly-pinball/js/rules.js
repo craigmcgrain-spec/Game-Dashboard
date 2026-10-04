@@ -48,9 +48,16 @@
     return mult;
   }
 
-  function hit(state, kind, nowMs) {
-    const base = POINTS[kind] || 0;
-    const points = Math.round(base * comboMultiplier(state, nowMs));
+  /**
+   * Score a hit. `baseAward` overrides POINTS[kind] when given (the table gives each pop
+   * bumper its own value), and Snack Time pays double while it is lit.
+   */
+  function hit(state, kind, nowMs, baseAward) {
+    const base = (typeof baseAward === 'number' && isFinite(baseAward))
+      ? baseAward
+      : (POINTS[kind] || 0);
+    const snack = isSnackTime(state, nowMs) ? 2 : 1;
+    const points = Math.round(base * comboMultiplier(state, nowMs)) * snack;
     state.score += points;
 
     const events = [];

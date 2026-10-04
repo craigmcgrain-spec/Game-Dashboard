@@ -184,15 +184,23 @@ const Physics = (() => {
       }
     }
 
+    let accumulator = 0;
+
     function step(dtMs) {
-      // Fixed timestep by design: dtMs is accepted for interface symmetry with the caller,
-      // but the simulation always advances in whole CONFIG.SUBSTEPS steps so physics stays
-      // frame-rate independent and probe-reproducible.
+      // Fixed timestep driven by REAL elapsed time: a fixed number of substeps per rAF
+      // callback makes the simulation run at (fps/60)x real time — at the ~95fps this
+      // WebView actually delivers the ball ran ~1.6x fast while Rules timers ran on the
+      // wall clock, silently shrinking the 8s ball save. Accumulate and spend whole steps.
+      // Defaults to one nominal frame so direct callers/tests that pass nothing still work.
       driveFlippers();
-      for (let i = 0; i < CONFIG.SUBSTEPS; i++) {
+      const dt = isFinite(dtMs) ? Math.min(dtMs, CONFIG.STEP_MS * 8) : CONFIG.STEP_MS * CONFIG.SUBSTEPS;
+      accumulator += dt;
+      let guard = 0;
+      while (accumulator >= CONFIG.STEP_MS && guard++ < 8) {
         Engine.update(engine, CONFIG.STEP_MS);
         clampSpeed();
         clampFlippers();
+        accumulator -= CONFIG.STEP_MS;
       }
     }
 

@@ -41,4 +41,19 @@ w.balls = 1;
 assert.ok(Rules.drain(w, Rules.DEFAULTS.BALL_SAVE_MS + 1).events.includes('game-over'));
 assert.strictEqual(w.gameOver, true);
 
+// review fix: a hit must honour an explicit base award (character-specific bumpers, spec 4.3)
+let x1 = Rules.createState(0);
+assert.strictEqual(Rules.hit(x1, 'bumper', 0, 200).points, 200,
+  'an explicit base award must override POINTS[kind]');
+assert.strictEqual(Rules.hit(Rules.createState(0), 'bumper', 0).points, 100,
+  'with no explicit award the kind default still applies');
+
+// review fix: Snack Time must actually multiply, not just play a sound
+let x2 = Rules.createState(0);
+x2.snackUntil = 1e9;
+assert.strictEqual(Rules.isSnackTime(x2, 0), true);
+const plain = Rules.hit(Rules.createState(0), 'bumper', 0).points;
+const snack = Rules.hit(x2, 'bumper', 0).points;
+assert.ok(snack > plain, 'Snack Time must pay more than a normal hit (' + snack + ' vs ' + plain + ')');
+
 console.log('rules.test.js OK');
