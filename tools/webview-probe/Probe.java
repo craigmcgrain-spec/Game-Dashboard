@@ -13,8 +13,10 @@ import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
+import javafx.scene.input.MouseButton;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
+import javafx.scene.robot.Robot;
 import javafx.scene.web.WebEngine;
 import javafx.scene.web.WebView;
 import javafx.stage.Stage;
@@ -45,9 +47,82 @@ public class Probe extends Application {
     private Node overlayFocusTarget;
     private int overlayFired = 0;
     private final boolean overlayMode = "1".equals(System.getenv("PROBE_OVERLAY"));
+    private final boolean keysMode = "1".equals(System.getenv("PROBE_KEYS"));
+    private final boolean onScreen = "1".equals(System.getenv("PROBE_ONSCREEN"));
     private String expression;
     private String[] sizes;
     private int index;
+
+    /** Real-key diagnostic: what does WebKit actually report for an OS keystroke?
+     *  Only sends keys when the stage reports itself focused, so a stray Space can never
+     *  land in whatever window the user really has in front. */
+    private void keysStep() {
+        engine.executeScript(
+            "window.__keys = [];"
+          + "window.addEventListener('keydown', function (e) {"
+          + "  window.__keys.push({ code: String(e.code), key: String(e.key), keyCode: e.keyCode, which: e.which }); });");
+        PauseTransition pre = new PauseTransition(Duration.millis(400));
+        pre.setOnFinished(ignored -> {
+            boolean focused = stage.isFocused();
+            Node owner = scene.getFocusOwner();
+            System.out.println("FOCUSED=" + focused);
+            System.out.println("FOCUS_OWNER=" + (owner == null ? "null" : owner.getClass().getSimpleName()));
+            System.out.println("FOCUS_OWNER_IS_WEBVIEW=" + (owner instanceof WebView));
+            if (!focused) {
+                System.out.println("REFUSED=stage not focused; sent nothing");
+                System.out.println("PROBE=keys-probe");
+                Platform.exit();
+                return;
+            }
+
+            Robot robot = new Robot();
+            sendKeys(robot);
+            PauseTransition afterType = new PauseTransition(Duration.millis(700));
+            afterType.setOnFinished(a -> {
+                Object n = engine.executeScript("String(window.__keys.length)");
+                System.out.println("KEYS_AFTER_TYPE=" + n);
+                // Second attempt, but click the page first the way a player does on starting.
+                robot.mouseMove((int) (stage.getX() + 300), (int) (stage.getY() + 400));
+                robot.mouseClick(MouseButton.PRIMARY);
+                PauseTransition afterClick = new PauseTransition(Duration.millis(400));
+                afterClick.setOnFinished(b -> {
+                    Node owner2 = scene.getFocusOwner();
+                    System.out.println("FOCUS_OWNER_AFTER_CLICK="
+                        + (owner2 == null ? "null" : owner2.getClass().getSimpleName()));
+                    sendKeys(robot);
+                    PauseTransition after = new PauseTransition(Duration.millis(700));
+                    after.setOnFinished(c -> {
+                        // Hold a flipper: a tap proves nothing because it returns to rest
+                        // before the read.
+                        robot.keyPress(KeyCode.LEFT);
+                        PauseTransition held = new PauseTransition(Duration.millis(300));
+                        held.setOnFinished(h -> {
+                            System.out.println("HELD=" + engine.executeScript(
+                                "(function(){try{var p=Game.internals.physics();"
+                              + "return JSON.stringify({state:Game.snapshot().state,left:+p.flippers.left.body.angle.toFixed(3)});}"
+                              + "catch(e){return 'ERR '+e;}})()"));
+                            robot.keyRelease(KeyCode.LEFT);
+                            System.out.println("KEYS=" + engine.executeScript("JSON.stringify(window.__keys)"));
+                            System.out.println("PROBE=keys-probe");
+                            Platform.exit();
+                        });
+                        held.play();
+                    });
+                    after.play();
+                });
+                afterClick.play();
+            });
+            afterType.play();
+        });
+        pre.play();
+    }
+
+    private static void sendKeys(Robot robot) {
+        robot.keyPress(KeyCode.SPACE);
+        robot.keyRelease(KeyCode.SPACE);
+        robot.keyPress(KeyCode.LEFT);
+        robot.keyRelease(KeyCode.LEFT);
+    }
 
     @Override
     public void start(Stage stage) throws Exception {
@@ -79,8 +154,13 @@ public class Probe extends Application {
 
         scene = new Scene(root, 1150, 780);
         stage.setScene(scene);
-        stage.setX(-3000);
-        stage.setY(-3000);
+        if (onScreen) {
+            stage.setX(60);
+            stage.setY(60);
+        } else {
+            stage.setX(-3000);
+            stage.setY(-3000);
+        }
         stage.show();
         if (overlayFocusTarget != null) {
             // Must be after show(): requestFocus on a node whose scene is not yet showing is
@@ -97,7 +177,9 @@ public class Probe extends Application {
                   + "  window.__probeErrors.push(String(e.message) + ' @' + e.filename + ':' + e.lineno); });"
                   + "window.__sawSpace = false;"
                   + "window.addEventListener('keydown', function (e) { if (e.code === 'Space') window.__sawSpace = true; });");
-                if (overlayMode) {
+                if (keysMode) {
+                    keysStep();
+                } else if (overlayMode) {
                     overlayStep();
                 } else {
                     PauseTransition settle = new PauseTransition(Duration.millis(1200));
