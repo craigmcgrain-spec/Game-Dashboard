@@ -14,6 +14,35 @@ public final class GamePage {
   private static final String SHIM = """
       <script>
       (function () {
+        // JavaFX WebView's CanvasRenderingContext2D.ellipse() is a silent no-op (verified on
+        // JavaFX 21 / WebKit 623.1): it exists but paints nothing, so games lose whole sprites.
+        // Feature-test it, then patch with the arc+scale equivalent only when it is broken.
+        try {
+          var proto = CanvasRenderingContext2D.prototype;
+          var broken = !proto.ellipse;
+          if (!broken) {
+            var probe = document.createElement("canvas");
+            probe.width = probe.height = 4;
+            var pg = probe.getContext("2d");
+            pg.fillStyle = "#000";
+            pg.beginPath();
+            pg.ellipse(2, 2, 2, 2, 0, 0, Math.PI * 2);
+            pg.fill();
+            broken = pg.getImageData(2, 2, 1, 1).data[3] === 0;
+          }
+          if (broken) {
+            proto.ellipse = function (x, y, rx, ry, rot, a0, a1, ccw) {
+              this.save();
+              this.translate(x, y);
+              if (rot) { this.rotate(rot); }
+              this.scale(rx, ry);
+              this.arc(0, 0, 1, a0, a1, !!ccw);
+              this.restore();
+            };
+          }
+        } catch (ignore) { /* leave the native method in place */ }
+      })();
+      (function () {
         var data = Object.assign(Object.create(null), SNAPSHOT);
         var queue = [];
         function send(m, a) { if (window.runtime) { window.runtime[m].apply(window.runtime, a); } else { queue.push([m, a]); } }

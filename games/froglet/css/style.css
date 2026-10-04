@@ -29,8 +29,10 @@ canvas {
   height: auto;
   border-radius: 12px;
   background: #79c7ea;
-  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.55);
   outline: none;
+  /* ponytail: no box-shadow — a large blurred shadow behind a canvas that repaints every
+     frame drops the JavaFX WebView to ~10fps (measured; ~90fps without). Add a wrapper
+     element with a static shadow if the look is ever needed back. */
 }
 
 .hint {

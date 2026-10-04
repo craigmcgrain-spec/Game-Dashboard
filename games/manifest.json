@@ -19,5 +19,12 @@
     "icon": "🐹",
     "entry": "nom-nom/index.html",
     "minAge": 4
+  },
+  {
+    "id": "silly-pinball",
+    "title": "Silly Pinball",
+    "icon": "🤪",
+    "entry": "silly-pinball/index.html",
+    "minAge": 5
   }
 ]
