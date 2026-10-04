@@ -263,8 +263,24 @@ const Render = (() => {
       g.globalAlpha = 1;
     }
 
+    // Renderer-side mood decay: the game signals a mood once on an event, and the renderer
+    // holds it for the brief's ~250ms (longer for celebratory moods), then falls back to idle.
+    const moodState = {};
+
+    function moodFor(id, now) {
+      const m = moodState[id];
+      return m && m.until > now ? m.mood : 'idle';
+    }
+
     function frame(state) {
       const st = state || {};
+      const now = (typeof performance !== 'undefined' && performance.now)
+        ? performance.now() : Date.now();
+
+      const requested = st.moods || {};
+      for (const id in requested) {
+        moodState[id] = { mood: requested[id], until: now + (requested[id] === 'hit' ? 250 : 700) };
+      }
 
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.fillStyle = C.backdrop;
@@ -281,6 +297,10 @@ const Render = (() => {
         if (el.type === 'dropTarget') drawTarget(ctx, el, d ? d.down : false);
         else if (el.type === 'flipper') drawFlipper(ctx, el, d ? d.angle : 0);
         else if (el.type === 'spinner') drawSpinner(ctx, el, d ? d.angle : 0);
+        else if (el.type === 'bumper' || el.type === 'kicker') {
+          Characters.draw(ctx, el.character || 'gummy', el.x, el.y, el.r,
+            moodFor(el.id, now), st.t || 0);
+        }
       }
 
       if (st.ball) drawBall(ctx, st.ball);
