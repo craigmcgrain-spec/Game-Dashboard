@@ -11,4 +11,22 @@ const CONFIG = Object.freeze({
   BACKGLASS: Object.freeze({ x: 508, y: 16, w: 508, h: 688 }),
 
   RESIZE_DEBOUNCE_MS: 120,
+
+  // ---- physics (Task 2) ----
+  SUBSTEPS: 2,            // fixed steps per frame; 120Hz total
+  STEP_MS: 1000 / 120,
+  BALL_R: 11,
+  // Matter has no CCD. A per-step displacement below wall thickness + ball diameter
+  // (~34 units) cannot fully skip a wall, so this cap is what stops tunnelling.
+  BALL_MAX_V: 26,
+  GRAVITY_Y: 1,
+
+  // ---- flippers (Task 2/3) ----
+  FLIPPER_REST_ANGLE: 0.5,  // left; the right side mirrors this
+  FLIPPER_UP_ANGLE: -0.45,
+  FLIPPER_SPEED: 0.16,      // radians per substep
+
+  // ---- plunger / nudge (Task 2/7) ----
+  PLUNGE_MAX: 34,
+  NUDGE_KICK: 3.5,
 });

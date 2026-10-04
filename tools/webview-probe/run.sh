@@ -30,6 +30,12 @@ GAME_DIR=$(cd "$1" && pwd)
 EXPR=$2
 SIZES=${3:-1150x780}
 
+# Long expressions are painful to quote through a shell. `@path/to/expr.js` reads the
+# expression from a file instead.
+case "$EXPR" in
+  @*) EXPR=$(cat "${EXPR#@}") ;;
+esac
+
 M2=${M2:-$HOME/.m2/repository}
 MP=$(ls "$M2"/org/openjfx/*/21.0.12/*-linux.jar | tr '\n' ':')
 
