@@ -12,7 +12,7 @@ body{margin:0;height:100vh;overflow:hidden;background:radial-gradient(circle at 
 .cloud{position:fixed;font-size:90px;opacity:.9;z-index:0}
 #g img{position:absolute;left:50%;bottom:0;height:380px;transform:translateX(-50%)}
 #mouth{position:absolute;left:50%;top:60%;width:130px;height:90px;margin-left:-65px;pointer-events:none}
-#tray{position:absolute;bottom:14px;left:0;right:0;display:flex;justify-content:center;gap:18px}
+#tray{z-index:5;position:absolute;bottom:14px;left:0;right:0;display:flex;justify-content:center;gap:18px}
 .food{font-size:68px;width:96px;height:96px;display:grid;place-items:center;background:#fff8;border-radius:50%;cursor:grab;touch-action:none}
 .food.drag{position:fixed;z-index:9;cursor:grabbing;background:none}
 #say{position:absolute;left:50%;top:6%;transform:translateX(-50%);font-size:42px;font-weight:bold;opacity:0;white-space:nowrap}
