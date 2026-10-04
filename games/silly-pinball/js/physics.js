@@ -114,27 +114,34 @@ const Physics = (() => {
     Composite.add(world, built.statics);
 
     const start = spec.elements.find(e => e.type === 'plunger');
-    const ball = Bodies.circle(start.x, start.y - CONFIG.BALL_R - 6, CONFIG.BALL_R, {
-      restitution: 0.55, friction: 0.005, frictionAir: 0.0008,
-      density: 0.02, label: 'ball', render: { visible: false },
-    });
-    Composite.add(world, ball);
+
+    function makeBall(x, y) {
+      return Bodies.circle(x, y, CONFIG.BALL_R, {
+        restitution: 0.55, friction: 0.005, frictionAir: 0.0008,
+        density: 0.02, label: 'ball', render: { visible: false },
+      });
+    }
+
+    const balls = [makeBall(start.x, start.y - CONFIG.BALL_R - 6)];
+    Composite.add(world, balls);
 
     let pending = [];
     Events.on(engine, 'collisionStart', (event) => {
       for (const pair of event.pairs) {
         const a = pair.bodyA, b = pair.bodyB;
-        const other = a === ball ? b : (b === ball ? a : null);
+        const other = balls.indexOf(a) !== -1 ? b : (balls.indexOf(b) !== -1 ? a : null);
         if (!other || !other.elKind) continue;
         pending.push({ kind: EVENT_KIND[other.elKind] || other.elKind, id: other.elId });
       }
     });
 
     function clampSpeed() {
-      const v = ball.velocity;
-      const speed = Math.hypot(v.x, v.y);
-      if (speed > CONFIG.BALL_MAX_V) {
-        Body.setVelocity(ball, { x: v.x * (CONFIG.BALL_MAX_V / speed), y: v.y * (CONFIG.BALL_MAX_V / speed) });
+      for (const b of balls) {
+        const v = b.velocity;
+        const speed = Math.hypot(v.x, v.y);
+        if (speed > CONFIG.BALL_MAX_V) {
+          Body.setVelocity(b, { x: v.x * (CONFIG.BALL_MAX_V / speed), y: v.y * (CONFIG.BALL_MAX_V / speed) });
+        }
       }
     }
 
@@ -195,19 +202,59 @@ const Physics = (() => {
     }
 
     function launch(power) {
-      const p = Math.max(0, Math.min(1, power == null ? 1 : power));
-      Body.setVelocity(ball, { x: 0, y: -CONFIG.PLUNGE_MAX * p });
+      // A non-finite power (a missing CONFIG key, a NaN charge) must never reach Matter:
+      // NaN velocity poisons the body's position permanently and the ball silently stops
+      // responding to everything.
+      const raw = (power == null || !isFinite(power)) ? 1 : power;
+      const p = Math.max(0, Math.min(1, raw));
+      if (balls.length === 0) return;
+      Body.setVelocity(balls[0], { x: 0, y: -CONFIG.PLUNGE_MAX * p });
     }
 
     function nudge() {
-      Body.setVelocity(ball, { x: ball.velocity.x + CONFIG.NUDGE_KICK, y: ball.velocity.y - CONFIG.NUDGE_KICK });
+      if (balls.length === 0) return;
+      const b = balls[0];
+      Body.setVelocity(b, { x: b.velocity.x + CONFIG.NUDGE_KICK, y: b.velocity.y - CONFIG.NUDGE_KICK });
     }
 
-    /** True once the ball has dropped into the drain zone (or past the playfield). */
+    /** True once any ball has dropped into the drain zone (or past the playfield). */
     function drainCheck() {
       const drain = spec.elements.find(e => e.type === 'drain');
       const top = drain ? drain.y - drain.h / 2 : CONFIG.PLAYFIELD.y + CONFIG.PLAYFIELD.h;
-      return ball.position.y > top;
+      for (const b of balls) {
+        if (b.position.y > top) return true;
+      }
+      return false;
+    }
+
+    /** Remove every ball in the drain zone; returns how many went down. */
+    function removeDrained() {
+      const drain = spec.elements.find(e => e.type === 'drain');
+      const top = drain ? drain.y - drain.h / 2 : CONFIG.PLAYFIELD.y + CONFIG.PLAYFIELD.h;
+      let gone = 0;
+      for (let i = balls.length - 1; i >= 0; i--) {
+        if (balls[i].position.y > top) {
+          Composite.remove(world, balls[i]);
+          balls.splice(i, 1);
+          gone++;
+        }
+      }
+      return gone;
+    }
+
+    /** Multiball: extra balls enter from the launch lane. */
+    function spawnExtra(count) {
+      for (let i = 0; i < count; i++) {
+        const b = makeBall(start.x, start.y - CONFIG.BALL_R - 6 - i * (CONFIG.BALL_R * 2 + 2));
+        Body.setVelocity(b, { x: 0, y: -CONFIG.PLUNGE_MAX * 0.85 });
+        Composite.add(world, b);
+        balls.push(b);
+      }
+      return balls.length;
+    }
+
+    function ballCount() {
+      return balls.length;
     }
 
     function collect() {
@@ -217,14 +264,34 @@ const Physics = (() => {
     }
 
     function reset(x, y) {
-      Body.setPosition(ball, { x: x, y: y });
-      Body.setVelocity(ball, { x: 0, y: 0 });
-      Body.setAngle(ball, 0);
-      Body.setAngularVelocity(ball, 0);
+      while (balls.length > 1) {
+        Composite.remove(world, balls[balls.length - 1]);
+        balls.pop();
+      }
+      // Every ball can drain, leaving no primary to reposition: without this the body would
+      // be `undefined`, Body.setPosition would throw inside Matter, and the exception would
+      // propagate out of frame() and kill the requestAnimationFrame chain for good.
+      if (balls.length === 0) {
+        balls.push(makeBall(x, y));
+        Composite.add(world, balls[0]);
+      }
+      const b = balls[0];
+      Body.setPosition(b, { x: x, y: y });
+      Body.setVelocity(b, { x: 0, y: 0 });
+      Body.setAngle(b, 0);
+      Body.setAngularVelocity(b, 0);
       pending = [];
     }
 
-    return { engine, ball, bodies: built.bodies, flippers: built.flippers, step, flipper, launch, nudge, drainCheck, collect, reset };
+    return {
+      engine,
+      // Live accessors: the primary ball can be destroyed and recreated, so a captured
+      // reference would go stale the first time every ball drained.
+      get ball() { return balls[0]; },
+      get balls() { return balls; },
+      bodies: built.bodies, flippers: built.flippers,
+      step, flipper, launch, nudge, drainCheck, removeDrained, spawnExtra, ballCount, collect, reset,
+    };
   }
 
   return { create };

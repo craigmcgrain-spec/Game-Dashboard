@@ -28,5 +28,6 @@ const CONFIG = Object.freeze({
 
   // ---- plunger / nudge (Task 2/7) ----
   PLUNGE_MAX: 34,
+  PLUNGE_CHARGE_MS: 700,   // hold the plunger this long for full power
   NUDGE_KICK: 3.5,
 });
