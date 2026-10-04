@@ -138,24 +138,54 @@ const Physics = (() => {
       }
     }
 
+    function limitsFor(side) {
+      const sign = side === 'left' ? 1 : -1;
+      const rest = sign * CONFIG.FLIPPER_REST_ANGLE;
+      const up = sign * CONFIG.FLIPPER_UP_ANGLE;
+      return { rest: rest, up: up, lo: Math.min(rest, up), hi: Math.max(rest, up) };
+    }
+
     function driveFlippers() {
       for (const side of ['left', 'right']) {
         const f = built.flippers[side];
         if (!f) continue;
-        const sign = side === 'left' ? 1 : -1;
-        const target = sign * (f.down ? CONFIG.FLIPPER_UP_ANGLE : CONFIG.FLIPPER_REST_ANGLE);
+        const lim = limitsFor(side);
+        const target = f.down ? lim.up : lim.rest;
         const delta = target - f.body.angle;
-        const step = Math.sign(delta) * Math.min(Math.abs(delta), CONFIG.FLIPPER_SPEED);
-        Body.setAngle(f.body, f.body.angle + step);
-        Body.setAngularVelocity(f.body, 0);
+        if (Math.abs(delta) < CONFIG.FLIPPER_SPEED) {
+          Body.setAngle(f.body, target);
+          Body.setAngularVelocity(f.body, 0);
+        } else {
+          Body.setAngularVelocity(f.body, Math.sign(delta) * CONFIG.FLIPPER_SPEED);
+        }
       }
     }
 
-    function step() {
+    /** A flipper never travels past its rest/pressed limits. */
+    function clampFlippers() {
+      for (const side of ['left', 'right']) {
+        const f = built.flippers[side];
+        if (!f) continue;
+        const lim = limitsFor(side);
+        if (f.body.angle < lim.lo) {
+          Body.setAngle(f.body, lim.lo);
+          Body.setAngularVelocity(f.body, 0);
+        } else if (f.body.angle > lim.hi) {
+          Body.setAngle(f.body, lim.hi);
+          Body.setAngularVelocity(f.body, 0);
+        }
+      }
+    }
+
+    function step(dtMs) {
+      // Fixed timestep by design: dtMs is accepted for interface symmetry with the caller,
+      // but the simulation always advances in whole CONFIG.SUBSTEPS steps so physics stays
+      // frame-rate independent and probe-reproducible.
       driveFlippers();
       for (let i = 0; i < CONFIG.SUBSTEPS; i++) {
         Engine.update(engine, CONFIG.STEP_MS);
         clampSpeed();
+        clampFlippers();
       }
     }
 

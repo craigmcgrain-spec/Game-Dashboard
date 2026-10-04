@@ -55,7 +55,7 @@ FULL=$(timeout 180 java --module-path "$MP" \
   -Dprism.order=sw -Duser.home="$HOME_DIR" -cp "$CP" \
   Probe "$GAME_DIR" "$EXPR" "$SIZES" 2>&1 || true)
 
-echo "$FULL" | grep -E '^PROBE' || {
+echo "$FULL" | grep -E '^PROBE|^OVERLAY' || {
   echo "$FULL" >&2
   echo "probe produced no PROBE output" >&2
   exit 1
