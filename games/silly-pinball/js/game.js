@@ -27,6 +27,7 @@ const Game = (() => {
 
   let moods = {};                  // one-shot mood signals; the renderer holds the decay
   let downTargets = {};
+  let flipperWas = { left: false, right: false };
   let plungerCharge = 0;
   let plungerHeld = false;
   let spinnerAngle = 0;
@@ -85,45 +86,68 @@ const Game = (() => {
     state = 'launch';
   }
 
-  /** Physics event -> rules outcome + the reaction the crew should show. */
+  let bumpIndex = 0;
+
+  /** Physics event -> rules outcome + the reaction the crew shows and the sound played. */
   function applyEvent(kind, id) {
     if (kind === 'bumper') {
       const r = Rules.hit(rules, 'bumper', now);
       moods[id] = 'hit';
+      Sound.play('bumper' + (1 + (bumpIndex++ % 3)));
       if (r.events.indexOf('combo-up') !== -1) cheer();
     } else if (kind === 'sling') {
       Rules.hit(rules, 'sling', now);
       moods[id] = 'hit';
+      Sound.play('sling');
     } else if (kind === 'standup') {
       Rules.hit(rules, 'standup', now);
       moods[id] = 'hit';
+      Sound.play('target');
     } else if (kind === 'spinner') {
       Rules.hit(rules, 'spinner', now);
       spinnerAngle += 0.9;
+      Sound.play('spinner');
     } else if (kind === 'kicker') {
       Rules.hit(rules, 'kicker', now);
       moods[id] = 'cheer';
+      Sound.play('kicker');
     } else if (kind === 'lane') {
       const r = Rules.hit(rules, 'lane', now);
       moods[id] = 'wobble';
-      if (r.events.indexOf('snack-time') !== -1) cheer();
+      Sound.play('target');
+      if (r.events.indexOf('snack-time') !== -1) {
+        cheer();
+        Sound.play('bank');
+      }
     } else if (kind === 'target') {
       const letter = TARGET_LETTERS[id];
       if (!letter) return;
       const r = Rules.bankHit(rules, letter, now);
       downTargets[id] = true;
       moods[id] = 'hit';
+      Sound.play('target');
       if (r.events.indexOf('bank-clear') !== -1) {
         downTargets = {};
         cheer();
+        Sound.play('bank');
+        Sound.play('multiball');
         physics.spawnExtra(2);           // multiball
       }
     }
   }
 
   function update(dtMs) {
-    physics.flipper('left', Input.isDown('left'));
-    physics.flipper('right', Input.isDown('right'));
+    const left = Input.isDown('left');
+    const right = Input.isDown('right');
+    if (left && !flipperWas.left) Sound.play('flipper');
+    if (right && !flipperWas.right) Sound.play('flipper');
+    flipperWas.left = left;
+    flipperWas.right = right;
+
+    physics.flipper('left', left);
+    physics.flipper('right', right);
+
+    if (Input.wasPressed('mute')) Sound.toggleMute();
 
     if (state === 'attract' || state === 'over') {
       if (Input.wasPressed('confirm')) newGame();
@@ -140,10 +164,14 @@ const Game = (() => {
         plungerCharge = 0;
         physics.launch(power);
         state = 'play';
+        Sound.play('launch');
       }
     }
 
-    if (Input.wasPressed('nudge') && state === 'play') physics.nudge();
+    if (Input.wasPressed('nudge') && state === 'play') {
+      physics.nudge();
+      Sound.play('nudge');
+    }
 
     physics.step(dtMs);
 
@@ -156,15 +184,19 @@ const Game = (() => {
         const r = Rules.drain(rules, now);
         if (r.events.indexOf('game-over') !== -1) {
           state = 'over';
+          Sound.play('cheer');
           const p = plunger();
           physics.reset(p.x, p.y - CONFIG.BALL_R - 6);   // machine sits ready behind the end screen
         } else {
+          Sound.play(r.events.indexOf('ball-save') !== -1 ? 'save' : 'drain');
           nextBall();
         }
       }
     }
 
-    Rules.advance(rules, now);
+    const ruleEvents = Rules.advance(rules, now).events;
+    if (ruleEvents.indexOf('extra-ball') !== -1) Sound.play('extra');
+
     if (rules.score > best) best = rules.score;
     spinnerAngle *= 0.96;
   }
@@ -227,6 +259,7 @@ const Game = (() => {
     renderer = Render.create(canvas, TABLE);
     physics = Physics.create(TABLE);
     rules = Rules.createState(0);
+    Sound.init('sounds');
     window.addEventListener('resize', onResize);
     ready = true;
     requestAnimationFrame(frame);
