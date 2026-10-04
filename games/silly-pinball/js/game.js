@@ -30,6 +30,10 @@ const Game = (() => {
   let flipperWas = { left: false, right: false };
   let message = '';                // the line currently in the backglass speech bubble
   let mascotMood = 'idle';
+  let particles = [];              // sparks, licked off the table bed
+  let pops = [];                   // floating score numbers
+  let shake = 0;
+  const trail = [];                // recent ball positions, newest first
   let plungerCharge = 0;
   let plungerHeld = false;
   let spinnerAngle = 0;
@@ -120,6 +124,9 @@ const Game = (() => {
     plungerHeld = false;
     message = 'nice try!';
     mascotMood = 'idle';
+    trail.length = 0;
+    particles = [];
+    pops = [];
     state = 'launch';
     checkpoint(rules);
   }
@@ -136,39 +143,82 @@ const Game = (() => {
     mascotMood = mood;
   }
 
+  function elementById(id) {
+    for (let i = 0; i < TABLE.elements.length; i++) {
+      if (TABLE.elements[i].id === id) return TABLE.elements[i];
+    }
+    return null;
+  }
+
+  function burst(el, count, power) {
+    if (!el) return;
+    for (let i = 0; i < count; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const s = power * (0.35 + Math.random() * 0.65);
+      particles.push({
+        x: el.x, y: el.y,
+        vx: Math.cos(a) * s, vy: Math.sin(a) * s,
+        life: 0.45, max: 0.45,
+        color: Render.CHARACTER_COLORS[el.character] || '#ffe066',
+        size: 2 + Math.random() * 3,
+      });
+    }
+  }
+
+  function pop(el, points) {
+    if (!el || !points) return;
+    pops.push({
+      x: el.x, y: el.y - (el.r || 16),
+      text: '+' + points,
+      color: '#ffe066',
+      life: 0.9, max: 0.9,
+    });
+  }
+
   /** Physics event -> rules outcome + the reaction the crew shows and the sound played. */
   function applyEvent(kind, id) {
     if (kind === 'bumper') {
       const r = Rules.hit(rules, 'bumper', now);
       moods[id] = 'hit';
       say(id, 'hit');
+      burst(elementById(id), 7, 170);
+      pop(elementById(id), r.points);
       Sound.play('bumper' + (1 + (bumpIndex++ % 3)));
       if (r.events.indexOf('combo-up') !== -1) cheer();
     } else if (kind === 'sling') {
-      Rules.hit(rules, 'sling', now);
+      const r = Rules.hit(rules, 'sling', now);
       moods[id] = 'hit';
       say(id, 'hit');
+      burst(elementById(id), 5, 150);
       Sound.play('sling');
     } else if (kind === 'standup') {
-      Rules.hit(rules, 'standup', now);
+      const r = Rules.hit(rules, 'standup', now);
       moods[id] = 'hit';
+      burst(elementById(id), 5, 140);
+      pop(elementById(id), r.points);
       Sound.play('target');
     } else if (kind === 'spinner') {
-      Rules.hit(rules, 'spinner', now);
+      const r = Rules.hit(rules, 'spinner', now);
       spinnerAngle += 0.9;
+      pop(elementById(id), r.points);
       Sound.play('spinner');
     } else if (kind === 'kicker') {
-      Rules.hit(rules, 'kicker', now);
+      const r = Rules.hit(rules, 'kicker', now);
       moods[id] = 'cheer';
       say(id, 'cheer');
+      burst(elementById(id), 10, 220);
+      pop(elementById(id), r.points);
+      shake = Math.max(shake, 8);
       Sound.play('kicker');
     } else if (kind === 'lane') {
       const r = Rules.hit(rules, 'lane', now);
       moods[id] = 'wobble';
       say(id, 'wobble');
+      burst(elementById(id), 4, 110);
       Sound.play('target');
       if (r.events.indexOf('snack-time') !== -1) {
         cheer();
+        shake = Math.max(shake, 10);
         Sound.play('bank');
       }
     } else if (kind === 'target') {
@@ -178,12 +228,15 @@ const Game = (() => {
       downTargets[id] = true;
       moods[id] = 'hit';
       say(id, 'hit');
+      burst(elementById(id), 6, 160);
+      pop(elementById(id), r.points);
       Sound.play('target');
       if (r.events.indexOf('bank-clear') !== -1) {
         downTargets = {};
         cheer();
         mascotMood = 'cheer';
         message = 'SNACK! Everyone cheers!';
+        shake = 18;
         Sound.play('bank');
         Sound.play('multiball');
         physics.spawnExtra(2);           // multiball
@@ -206,6 +259,9 @@ const Game = (() => {
 
     if (state === 'attract' || state === 'over') {
       if (Input.wasPressed('confirm')) newGame();
+      // Still step so the flippers swing to their rest angle and the parked ball settles:
+      // without this the attract screen shows the flippers stuck flat at angle 0.
+      physics.step(dtMs);
       return;
     }
 
@@ -257,6 +313,32 @@ const Game = (() => {
 
     if (rules.score > best) best = rules.score;
     spinnerAngle *= 0.96;
+
+    // effects: sparks, floating score numbers, shake, ball trail
+    const dt = dtMs / 1000;
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      p.life -= dt;
+      if (p.life <= 0) { particles.splice(i, 1); continue; }
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.vy += 420 * dt;
+    }
+    for (let i = pops.length - 1; i >= 0; i--) {
+      const q = pops[i];
+      q.life -= dt;
+      if (q.life <= 0) { pops.splice(i, 1); continue; }
+      q.y -= 42 * dt;
+    }
+    shake = Math.max(0, shake - dtMs * 0.06);
+
+    const b = physics.ball;
+    if (b && state === 'play') {
+      trail.unshift({ x: b.position.x, y: b.position.y });
+      while (trail.length > 7) trail.pop();
+    } else {
+      trail.length = 0;
+    }
   }
 
   function dynamicElements() {
@@ -284,7 +366,10 @@ const Game = (() => {
       // escapes and the requestAnimationFrame chain dies for good.
       ball: b ? { x: b.position.x, y: b.position.y, vx: b.velocity.x, vy: b.velocity.y } : null,
       elements: dynamicElements(),
-      particles: [],
+      particles: particles,
+      pops: pops,
+      trail: trail,
+      shake: shake,
       moods: moods,
       over: state === 'over',
       backglass: {

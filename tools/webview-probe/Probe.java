@@ -161,7 +161,12 @@ public class Probe extends Application {
         }
         String size = sizes[index++];
         parse(size);
-        PauseTransition wait = new PauseTransition(Duration.millis(500));
+        double gapMs = 500;
+        String gapEnv = System.getenv("PROBE_GAP_MS");
+        if (gapEnv != null && !gapEnv.isEmpty()) {
+            gapMs = Double.parseDouble(gapEnv);
+        }
+        PauseTransition wait = new PauseTransition(Duration.millis(gapMs));
         wait.setOnFinished(e -> report(size));
         wait.play();
     }
@@ -172,6 +177,24 @@ public class Probe extends Application {
         stage.setHeight(Double.parseDouble(size.substring(x + 1)));
     }
 
+    private int reportIndex = 0;
+
+    private void saveCanvas(String path) {
+        try {
+            Object d = engine.executeScript(
+                "(document.getElementById('game')||{toDataURL:function(){return ''}}).toDataURL('image/png')");
+            String s = String.valueOf(d);
+            if (s.length() < 50) {
+                return;
+            }
+            Files.write(Path.of(path),
+                java.util.Base64.getDecoder().decode(s.substring(s.indexOf(',') + 1)));
+            System.out.println("PNG=" + path);
+        } catch (Exception ex) {
+            System.out.println("PNG_FAIL=" + ex);
+        }
+    }
+
     private void report(String size) {
         Object result;
         try {
@@ -180,6 +203,10 @@ public class Probe extends Application {
             result = "ERROR " + ex.getMessage();
         }
         System.out.println((sizes.length == 1 ? "PROBE=" : "PROBE@" + size + "=") + result);
+        String pngDir = System.getenv("PROBE_PNG");
+        if (pngDir != null && !pngDir.isEmpty()) {
+            saveCanvas(pngDir + "/shot-" + (reportIndex++) + ".png");
+        }
         if (index >= sizes.length) {
             Platform.exit();
         } else {

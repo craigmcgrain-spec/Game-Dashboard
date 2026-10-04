@@ -363,6 +363,32 @@ const Render = (() => {
       g.fillText('PRESS SPACE', x + w / 2, y + 212);
     }
 
+    function drawTrail(g, trail) {
+      if (!trail) return;
+      for (let i = trail.length - 1; i >= 0; i--) {
+        const p = trail[i];
+        const k = 1 - i / (trail.length + 1);
+        g.globalAlpha = 0.16 * k;
+        g.fillStyle = C.ball;
+        g.beginPath();
+        g.arc(p.x, p.y, CONFIG.BALL_R * (0.5 + 0.5 * k), 0, Math.PI * 2);
+        g.fill();
+      }
+      g.globalAlpha = 1;
+    }
+
+    function drawPops(g, pops) {
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      for (const q of pops || []) {
+        g.globalAlpha = Math.max(0, Math.min(1, q.life / (q.max || 1)));
+        g.fillStyle = q.color;
+        g.font = 'bold 20px ' + FONT;
+        g.fillText(q.text, q.x, q.y);
+      }
+      g.globalAlpha = 1;
+    }
+
     function frame(state) {
       const st = state || {};
       const now = (typeof performance !== 'undefined' && performance.now)
@@ -373,12 +399,16 @@ const Render = (() => {
         moodState[id] = { mood: requested[id], until: now + (requested[id] === 'hit' ? 250 : 700) };
       }
 
+      const sh = (st.shake || 0) * scale * dpr;
+      const sx = sh ? (Math.random() - 0.5) * sh : 0;
+      const sy = sh ? (Math.random() - 0.5) * sh : 0;
+
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.fillStyle = C.backdrop;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
-      if (bedCanvas) ctx.drawImage(bedCanvas, offsetX, offsetY);
+      if (bedCanvas) ctx.drawImage(bedCanvas, offsetX + sx, offsetY + sy);
 
-      ctx.setTransform(scale * dpr, 0, 0, scale * dpr, offsetX, offsetY);
+      ctx.setTransform(scale * dpr, 0, 0, scale * dpr, offsetX + sx, offsetY + sy);
 
       const dyn = {};
       for (const d of st.elements || []) dyn[d.id] = d;
@@ -394,8 +424,10 @@ const Render = (() => {
         }
       }
 
+      drawTrail(ctx, st.trail);
       if (st.ball) drawBall(ctx, st.ball);
       drawParticles(ctx, st.particles);
+      drawPops(ctx, st.pops);
       drawBackglass(ctx, st);
       if (st.over) drawOver(ctx, st);
     }
